@@ -1,9 +1,9 @@
 // General Signature Guides:
-
-// Yellow (Elderly): Signature One
+// Purple (Elderly): Signature One
 // Red (Fire/Danger): Signature Two
-// Green (Safe Zone): Signature Three
-// Blue (Water): Signature Four
+// Blue (Water): Signature Three
+// Green/Yellow (Eletank): CC Signature Four/Five
+
 
 #include <SPI.h>
 #include <Pixy.h>
