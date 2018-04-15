@@ -12,6 +12,18 @@
 #define PWT 20 // Pixy Width Threshold (To Reliably Initialize Correct PixyObj Struct using Correct Image)
 #define MAD 25 // Minumum distance between eletank and target before it can perform a eletank-to-object action (save elder, get water).
 
+// Defining pins!
+#define pin_spigot      11
+#define pin_syringe      9
+
+#define pin_L_enable     5
+#define pin_L_forward    6
+#define pin_L_backward   7
+
+#define pin_R_enable     3
+#define pin_R_forward    2
+#define pin_R_backward   1
+
 enum State {Save_Elderly, Retrieve_Water, Extinguish_Fire};
 
 struct PixyObj {
