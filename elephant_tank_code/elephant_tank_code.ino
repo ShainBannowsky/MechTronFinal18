@@ -7,22 +7,30 @@
 
 #include <SPI.h>
 #include <Pixy.h>
+#include <Servo.h>
 
 #define NPO 4 // Number of Pixy Objects
 #define PWT 20 // Pixy Width Threshold (To Reliably Initialize Correct PixyObj Struct using Correct Image)
 #define MAD 25 // Minumum distance between eletank and target before it can perform a eletank-to-object action (save elder, get water).
 
-// Defining pins!
-#define pin_spigot      11
-#define pin_syringe      9
+#define PIN_SPIGOT      11
+#define PIN_SYRINGE      9
 
-#define pin_L_enable     5
-#define pin_L_forward    6
-#define pin_L_backward   7
+#define PIN_L_ENABLE     5
+#define PIN_L_FORWARD    6
+#define PIN_L_BACKWARD   7
 
-#define pin_R_enable     3
-#define pin_R_forward    2
-#define pin_R_backward   1
+#define PIN_R_ENABLE     3
+#define PIN_R_FORWARD    2
+#define PIN_R_BACKWARD   1
+
+#define MSEC_FILLTIME 1000
+//#define MSEC_OUNCE  // To be determined later
+#define A_REST_SPIGOT  135
+#define A_FILL_SPIGOT  -45
+
+Servo servo_spigot;
+Servo servo_syringe;
 
 enum State {Save_Elderly, Retrieve_Water, Extinguish_Fire};
 
@@ -68,6 +76,10 @@ void setup() {
   Serial.println("Begin Initialization...\n");
   
   pixy.init(); // Initialize Pixy Object
+
+  // Initalizing Servos
+  servo_spigot.attach(PIN_SPIGOT);
+  servo_syringe.attach(PIN_SYRINGE);
 
   int nvb = 0; // Number of Viewed Blocks ("Seen Signtaures")
   while (nvb <= NPO) { // Before Initializing Structs, ensure that all signatures have been detected.
@@ -224,8 +236,9 @@ void commandTankSave(){
 }
 
 void commandTankDeposit(){
-  // Stop Tank from moving!
-  // Deposit Elderly
+  // Moving Spigot down to detach elderly.
+  Spigot(A_FILL_SPIGOT); // Currently using spigot fill angle.
+  Spigot(A_REST_SPIGOT); // Currently using spigot resting angle.
 }
 
 void commandTankExniguish(){
@@ -235,9 +248,9 @@ void commandTankExniguish(){
 }
 
 void commandTankFill(){
-  // Stop Tank from moving!
-  // Angle "Tank Hose" Downward into body of water.
-  // Fill Syringe 
+  Spigot(A_FILL_SPIGOT);
+  SyringeFill()
+  Spigot(A_REST_SPIGOT);
 }
 
 bool isBeyondBoundary(Location pos){ // Returns whether the Location position is in "Free Space" (or space beyond boundary)
@@ -251,3 +264,32 @@ bool isBeyondBoundary(Location pos){ // Returns whether the Location position is
 void commandTankObstacleAvoidance() { // Use distance sensor in front to determine whether it should evade the obstacle
   // Have a set arch to deviate from linear path.  
 }
+
+void SyringeFill() {
+  // Fill Syringe, assuming position-controlled servo.
+  servo_syringe.write(0); // "0" for filling syringe.
+  delay(MSEC_FILLTIME); // Time to fill is experimentally determined.
+  servo_syringe.write(90); // "90" to stop filling syringe.
+}
+
+void SyringeFire(msec_time) {
+  servo_syringe.write(180); // "180" for emptying syringe.
+  delay(msec_time); // Spray water for specified amount of time.
+  servo_syringe.write(90); // "90" to stop emptying syringe.
+}
+
+void Spigot(input_angle) {
+  // Sanity check!
+  if(typeof(input_angle) != int) {
+    Serial.println("Spigot() takes integers! (it can handle floats though)");
+  }
+  int angle = (int)input_angle
+  if(angle > 90) {
+    servo_spigot.write(180);
+  } else if(angle < (-90)) {
+    servo_spigot.write(0);
+  } else {
+    servo_spigot.write(angle);
+  }
+}
+
