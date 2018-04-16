@@ -1,3 +1,4 @@
+// NOTE: Signature guides probably deprecated.
 // General Signature Guides:
 // Purple (Elderly): Signature One
 // Red (Fire/Danger): Signature Two
@@ -77,9 +78,17 @@ void setup() {
   
   pixy.init(); // Initialize Pixy Object
 
-  // Initalizing Servos
+  // Initalizing Servos:
   servo_spigot.attach(PIN_SPIGOT);
   servo_syringe.attach(PIN_SYRINGE);
+
+  // Initalizing Pins:
+  pinMode(PIN_L_ENABLE, OUTPUT);
+  pinMode(PIN_L_FORWARD, OUTPUT);
+  pinMode(PIN_L_BACKWARD, OUTPUT);
+  pinMode(PIN_R_ENABLE, OUTPUT);
+  pinMode(PIN_R_FORWARD, OUTPUT);
+  pinMode(PIN_R_BACKWARD, OUTPUT);
 
   int nvb = 0; // Number of Viewed Blocks ("Seen Signtaures")
   while (nvb <= NPO) { // Before Initializing Structs, ensure that all signatures have been detected.
@@ -237,8 +246,8 @@ void commandTankSave(){
 
 void commandTankDeposit(){
   // Moving Spigot down to detach elderly.
-  Spigot(A_FILL_SPIGOT); // Currently using spigot fill angle.
-  Spigot(A_REST_SPIGOT); // Currently using spigot resting angle.
+  spigot(A_FILL_SPIGOT); // Currently using spigot fill angle.
+  spigot(A_REST_SPIGOT); // Currently using spigot resting angle.
 }
 
 void commandTankExniguish(){
@@ -248,9 +257,9 @@ void commandTankExniguish(){
 }
 
 void commandTankFill(){
-  Spigot(A_FILL_SPIGOT);
-  SyringeFill()
-  Spigot(A_REST_SPIGOT);
+  spigot(A_FILL_SPIGOT);
+  syringeFill()
+  spigot(A_REST_SPIGOT);
 }
 
 bool isBeyondBoundary(Location pos){ // Returns whether the Location position is in "Free Space" (or space beyond boundary)
@@ -265,20 +274,20 @@ void commandTankObstacleAvoidance() { // Use distance sensor in front to determi
   // Have a set arch to deviate from linear path.  
 }
 
-void SyringeFill() {
+void syringeFill() {
   // Fill Syringe, assuming position-controlled servo.
   servo_syringe.write(0); // "0" for filling syringe.
   delay(MSEC_FILLTIME); // Time to fill is experimentally determined.
   servo_syringe.write(90); // "90" to stop filling syringe.
 }
 
-void SyringeFire(msec_time) {
+void syringeFire(msec_time) {
   servo_syringe.write(180); // "180" for emptying syringe.
   delay(msec_time); // Spray water for specified amount of time.
   servo_syringe.write(90); // "90" to stop emptying syringe.
 }
 
-void Spigot(input_angle) {
+void spigot(input_angle) {
   // Sanity check!
   if(typeof(input_angle) != int) {
     Serial.println("Spigot() takes integers! (it can handle floats though)");
@@ -293,3 +302,68 @@ void Spigot(input_angle) {
   }
 }
 
+int checkSpeed(spd) {
+  // Sanity check for speed.
+  if(spd > 255) {
+    return 255;
+  } else if(spd <= 0) {
+    Serial.println("You know you set turning speed to 0 right?");
+    return 0;
+  } else {
+    return (int)spd;
+  }
+}
+
+void tankStop() {
+  // Stops tank tread's movement.
+  analogWrite(PIN_L_ENABLE, 0);
+  digitalWrite(PIN_L_FORWARD, LOW);
+  digitalWrite(PIN_L_BACKWARD, LOW);
+  analogWrite(PIN_R_ENABLE, 0);
+  digitalWrite(PIN_R_FORWARD, LOW);
+  digitalWrite(PIN_R_BACKWARD, LOW);
+}
+
+void tankTurn(spd, dir) {
+  // Continuously turn in given direction and speed.
+  spd = checkSpeed(spd);
+  // Checking direction.
+  if(dir == 'L') {
+    digitalWrite(PIN_L_FORWARD, HIGH);
+    digitalWrite(PIN_L_BACKWARD, LOW);
+    digitalWrite(PIN_R_FORWARD, LOW);
+    digitalWrite(PIN_R_BACKWARD, HIGH);
+  } else if(dir == 'R') {
+    digitalWrite(PIN_L_FORWARD, HIGH);
+    digitalWrite(PIN_L_BACKWARD, LOW);
+    digitalWrite(PIN_R_FORWARD, LOW);
+    digitalWrite(PIN_R_BACKWARD, HIGH);
+  } else {
+    Serial.print("Invalid direction input to tankTurn(): dir = ");
+    Serial.println(dir);
+    // Invalid input! Stopping tank!
+    tankStop();
+  }
+}
+
+void tankDrive(spd) {
+  // Drive forwards at a relative speed!
+  spd = checkSpeed(spd);
+  analogWrite(PIN_L_ENABLE, spd);
+  analogWrite(PIN_R_ENABLE, spd);
+  digitalWrite(PIN_L_FORWARD, HIGH);
+  digitalWrite(PIN_L_BACKWARD, LOW);
+  digitalWrite(PIN_R_FORWARD, HIGH);
+  digitalWrite(PIN_R_BACKWARD, LOW);
+}
+
+void tankReverse(spd) {
+  // Drive forwards at a relative speed!
+  spd = checkSpeed(spd);
+  analogWrite(PIN_L_ENABLE, spd);
+  analogWrite(PIN_R_ENABLE, spd);
+  digitalWrite(PIN_L_FORWARD, LOW);
+  digitalWrite(PIN_L_BACKWARD, HIGH);
+  digitalWrite(PIN_R_FORWARD, LOW);
+  digitalWrite(PIN_R_BACKWARD, HIGH);
+}
