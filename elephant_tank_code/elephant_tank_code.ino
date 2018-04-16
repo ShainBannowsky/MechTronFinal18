@@ -358,7 +358,7 @@ void tankDrive(spd) {
 }
 
 void tankReverse(spd) {
-  // Drive forwards at a relative speed!
+  // Drive backwards at a relative speed!
   spd = checkSpeed(spd);
   analogWrite(PIN_L_ENABLE, spd);
   analogWrite(PIN_R_ENABLE, spd);
