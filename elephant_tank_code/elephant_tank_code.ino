@@ -56,7 +56,7 @@ PixyObj eletank;
 //Location pickup_loc; // bacon
 //Location cc_loc; // bacon
 //Location safezone_loc; // bacon
-//Location szb_loc; // Safe Zone Boundry // bacon
+Location szb_loc; // Safe Zone Boundry // bacon
 
 // Location elderly_pos; // bacon
 Location eletank_pos;
@@ -135,8 +135,13 @@ void setup() {
   }
   */  // bacon
   // For Testing:
+  int block_pos = 0;
   int pixy_sig = pixy.blocks[block_pos].signature;
   int eletank_sig = 0; // Place signature no. of eletank here!
+  int w = pixy.blocks[block_pos].width;
+  int h = pixy.blocks[block_pos].height;
+  int x = pixy.blocks[block_pos].x;
+  int y = pixy.blocks[block_pos].y;
   if (pixy_sig == eletank_sig){
      eletank = {w, h, x, y, block_pos};
   }
@@ -320,13 +325,13 @@ int commandTankMovement(Location target) { // May need some threshold flag to he
   return distance_from_target;
 }
 
-bool isBeyondBoundary(Location pos){ // Returns whether the Location position is in "Free Space" (or space beyond boundary)
+/*bool isBeyondBoundary(Location pos){ // Returns whether the Location position is in "Free Space" (or space beyond boundary)
   if (pos.y_pos < szb_loc.y_pos) {
     return false;
   } else {
     return true;
   }
-}
+}*/
 
 void commandTankNavigate(Location target_location) {
   int dft; // Distance from Target...
@@ -378,7 +383,7 @@ void commandTankExniguish(){
 
 void commandTankFill(){
   spigot(A_FILL_SPIGOT);
-  syringeFill()
+  syringeFill();
   spigot(A_REST_SPIGOT);
 }
 
@@ -401,18 +406,15 @@ void syringeFill() {
   servo_syringe.write(90); // "90" to stop filling syringe.
 }
 
-void syringeFire(msec_time) {
+/*void syringeFire(msec_time) {
   servo_syringe.write(180); // "180" for emptying syringe.
   delay(msec_time); // Spray water for specified amount of time.
   servo_syringe.write(90); // "90" to stop emptying syringe.
-}
+}*/
 
-void spigot(input_angle) {
+void spigot(int input_angle) {
   // Sanity check!
-  if(typeof(input_angle) != int) {
-    Serial.println("Spigot() takes integers! (it can handle floats though)");
-  }
-  int angle = (int)input_angle
+  int angle = (int)input_angle;
   if(angle > 90) {
     servo_spigot.write(180);
   } else if(angle < (-90)) {
@@ -422,7 +424,7 @@ void spigot(input_angle) {
   }
 }
 
-int checkSpeed(spd) {
+int checkSpeed(int spd) {
   // Sanity check for speed.
   if(spd > 255) {
     return 255;
@@ -444,7 +446,7 @@ void tankStop() {
   digitalWrite(PIN_R_BACKWARD, LOW);
 }
 
-void tankTurn(spd, dir) {
+void tankTurn(int spd, int dir) {
   // Continuously turn in given direction and speed.
   spd = checkSpeed(spd);
   // Checking direction.
@@ -466,7 +468,7 @@ void tankTurn(spd, dir) {
   }
 }
 
-void tankDrive(spd) {
+void tankDrive(int spd) {
   // Drive forwards at a relative speed!
   spd = checkSpeed(spd);
   analogWrite(PIN_L_ENABLE, spd);
@@ -477,7 +479,7 @@ void tankDrive(spd) {
   digitalWrite(PIN_R_BACKWARD, LOW);
 }
 
-void tankReverse(spd) {
+void tankReverse(int spd) {
   // Drive backwards at a relative speed!
   spd = checkSpeed(spd);
   analogWrite(PIN_L_ENABLE, spd);
