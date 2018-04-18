@@ -32,8 +32,6 @@
 Servo servo_spigot;
 Servo servo_syringe;
 
-enum State {Save_Elderly, Retrieve_Water, Extinguish_Fire};
-
 struct PixyObj {
   int width;
   int height;
@@ -49,18 +47,18 @@ struct Location {
 
 Pixy pixy; // Create Pixy Object
 
-PixyObj elderly;
-PixyObj danger;
+//PixyObj elderly; // bacon
+//PixyObj danger; // bacon
 PixyObj eletank;
-PixyObj water;
+//PixyObj water; // bacon
 
-Location water_loc;
-Location pickup_loc;
-Location cc_loc;
-Location safezone_loc;
-Location szb_loc; // Safe Zone Boundry
+//Location water_loc; // bacon
+//Location pickup_loc; // bacon
+//Location cc_loc; // bacon
+//Location safezone_loc; // bacon
+//Location szb_loc; // Safe Zone Boundry // bacon
 
-Location elderly_pos;
+// Location elderly_pos; // bacon
 Location eletank_pos;
 
 // Important Distances:
@@ -68,7 +66,7 @@ int szd; // Distance (Height) from Concave Corner Border to Safe Zone.
 int wep; // Distance (Height) from Water to Elderly Pick Up Location.
 
 // Other Important Variables:
-State curr_state;
+// State curr_state; // bacon
 Location curr_target;
 
 // Elderly Signal Variables:
@@ -82,7 +80,6 @@ void setup() {
   
   pixy.init(); // Initialize Pixy Object
 
-<<<<<<< HEAD
   // Initalizing Servos:
   servo_spigot.attach(PIN_SPIGOT);
   servo_syringe.attach(PIN_SYRINGE);
@@ -94,17 +91,16 @@ void setup() {
   pinMode(PIN_R_ENABLE, OUTPUT);
   pinMode(PIN_R_FORWARD, OUTPUT);
   pinMode(PIN_R_BACKWARD, OUTPUT);
-=======
-  pinMode(elderly_sig_out, OUTPUT);
-  pinMode(elderly_sig_inp, INPUT);
-  digitalWrite(elderly_sig_out, HIGH);
->>>>>>> 9783625f03586ff52d98bd16b21c5fbcdde49caa
+//  pinMode(elderly_sig_out, OUTPUT); // bacon
+//  pinMode(elderly_sig_inp, INPUT); // bacon
+//  digitalWrite(elderly_sig_out, HIGH); // bacon
 
-  int nvb = 0; // Number of Viewed Blocks ("Seen Signtaures")
-  while (nvb <= NPO) { // Before Initializing Structs, ensure that all signatures have been detected.
-   nvb += pixy.getBlocks();
-  }
-  
+//  int nvb = 0; // Number of Viewed Blocks ("Seen Signtaures") // bacon
+//  while (nvb <= NPO) { // Before Initializing Structs, ensure that all signatures have been detected. // bacon
+//   nvb += pixy.getBlocks(); // bacon
+//  } // bacon
+
+/*  // bacon
   // Initialize PixyObj Structs
   int block_pos ;
   for (int block_pos = 0; block_pos < NPO; block_pos++) {
@@ -137,44 +133,69 @@ void setup() {
          break;
     }
   }
+  */  // bacon
+  // For Testing:
+  int pixy_sig = pixy.blocks[block_pos].signature;
+  int eletank_sig = 0; // Place signature no. of eletank here!
+  if (pixy_sig == eletank_sig){
+     eletank = {w, h, x, y, block_pos};
+  }
+  //End
   
   // Initialize Reference Locations and Relative Distances
-  water_loc = {water.x_pos, water.y_pos}; 
-  pickup_loc = {elderly.x_pos, elderly.y_pos};
-  wep = abs(getVDist(water_loc,pickup_loc)); // Distance (Height) from Water to Elderly Pick Up Location.
-  cc_loc = {water.x_pos - elderly.x_pos,water.y_pos - elderly.y_pos}; // Concave Corner Location
-  szd = elderly.y_pos - water.width; // Use the Y Position of Water - ((Distance Between Elderly and Water) + Length of Body of Water)
-  safezone_loc = {water_loc.x_pos, szd}; // Point to aim to drop off the elderly
+  /* bacon
+  //water_loc = {water.x_pos, water.y_pos}; 
+  //pickup_loc = {elderly.x_pos, elderly.y_pos};
+  //wep = abs(getVDist(water_loc,pickup_loc)); // Distance (Height) from Water to Elderly Pick Up Location.
+  //cc_loc = {water.x_pos - elderly.x_pos,water.y_pos - elderly.y_pos}; // Concave Corner Location
+  //szd = elderly.y_pos - water.width; // Use the Y Position of Water - ((Distance Between Elderly and Water) + Length of Body of Water)
+  //safezone_loc = {water_loc.x_pos, szd}; // Point to aim to drop off the elderly
+  */
   
   // Initialize Moving Object Positions:
-  elderly_pos = {elderly.x_pos, elderly.y_pos};
+  //elderly_pos = {elderly.x_pos, elderly.y_pos};
   eletank_pos = {eletank.x_pos, eletank.y_pos};
 
-  curr_state = -1;
   curr_target = eletank_pos; // Starting target is where eletank already is.
   Serial.println("Initialization Complete...\n");
 }
 
+// For testing
+int target_angle;
 // Using Starting Position, State Machines, and Functions / Reference Locations to Direct EleTank.
 void loop() {
   
   //Update EleTank Position with each run of the main loop.
-    
+  Serial.println("Turning to 30 deg");
+  eletankCommandTurn(30);
+  Serial.println("Turning to 90 deg");
+  eletankCommandTurn(90);
+  Serial.println("Turning to -30 deg");
+  eletankCommandTurn(-30);
+  Serial.println("Turning to 30 deg");
+  eletankCommandTurn(30);
+  Serial.println("Turning to -30 deg");
+  eletankCommandTurn(-30);
+  Serial.println("Turning to 90 deg");
+  eletankCommandTurn(90);
+
+  /* Bacon
   curr_target = pickup_loc;
   if (getHDist(eletank_pos, curr_target) < MAD) { // Can't assume we'll approach elderly from a Horizontal Position
     while (digitalRead(elderly_sig_inp) == LOW) {
       commandTankSave();
     }
-  }
+  }*/
 
-  curr_target = safezone_loc;
-  commandTankMovement(curr_target);
+  //curr_target = safezone_loc;v// bacon
+  //commandTankMovement(curr_target);//bacon
 
   // Consider adding an interrupt for re-retrieving the elderly!
   
-  if (getHDist(eletank_pos, curr_target) < MAD) {
+  /* Bacon
+   * if (getHDist(eletank_pos, curr_target) < MAD) {
     commandTankDeposit();
-  }
+  }*/
         
   // Retrieve Water...
   // Put Out Fire...
@@ -259,9 +280,11 @@ char findTurnDirection(int currentDegree, int target)
 }
 
 void eletankCommandTurn(int target_angle_dir) {
+  
   /* Get the angular position of the tank. */
   int curr_eletank_angle = pixy.blocks[eletank.block_pos].angle;   
-
+  curr_eletank_angle = pixyAngleConvert(curr_eletank_angle);
+  
   /* Determine which direction is most efficient to turn. */
   char dir_char = findTurnDirection(curr_eletank_angle, target_angle_dir);  
 
@@ -274,8 +297,9 @@ void eletankCommandTurn(int target_angle_dir) {
   /* Turn until angular difference between desired position and tank posiion are negligible */
   while (abs(ang_diff) > 3) {
     // INSERT DRIVE FORWARD FUNCTION HERE!
-    //tankTurn(1, dir_char); // '1' Currently place holder for speed.
+    tankTurn(255, dir_char); // '1' Currently place holder for speed.
     curr_eletank_angle = pixy.blocks[eletank.block_pos].angle;
+    curr_eletank_angle = pixyAngleConvert(curr_eletank_angle);
     ang_diff = (curr_eletank_angle - target_angle_dir)%360;
   }
 }
@@ -325,18 +349,25 @@ void commandTankNavigate(Location target_location) {
 /*Functions "under construction"...*/
 /***********************************/
 
+int pixyAngleConvert(int pixy_angle) {
+  int temp_angle;
+  temp_angle = pixy_angle - 90;
+  temp_angle = (temp_angle) * (-1);
+  if(temp_angle < 0) {
+    temp_angle = 360 - temp_angle;
+  }
+  return temp_angle;
+}
+
 void commandTankSave(){
   // Stop Tank from moving!
   // Once the tank is within range, pick up the elderly.
 }
 
-<<<<<<< HEAD
 void commandTankDeposit(){
   // Moving Spigot down to detach elderly.
   spigot(A_FILL_SPIGOT); // Currently using spigot fill angle.
   spigot(A_REST_SPIGOT); // Currently using spigot resting angle.
-=======
->>>>>>> 9783625f03586ff52d98bd16b21c5fbcdde49caa
 }
 
 void commandTankExniguish(){
@@ -350,7 +381,6 @@ void commandTankFill(){
   syringeFill()
   spigot(A_REST_SPIGOT);
 }
-<<<<<<< HEAD
 
 bool isBeyondBoundary(Location pos){ // Returns whether the Location position is in "Free Space" (or space beyond boundary)
   if (pos.y_pos < szb_loc.y_pos) {
@@ -457,5 +487,4 @@ void tankReverse(spd) {
   digitalWrite(PIN_R_FORWARD, LOW);
   digitalWrite(PIN_R_BACKWARD, HIGH);
 }
-=======
->>>>>>> 9783625f03586ff52d98bd16b21c5fbcdde49caa
+
