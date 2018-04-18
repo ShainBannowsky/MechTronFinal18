@@ -5,7 +5,6 @@
 // Blue (Water): Signature Three
 // Green/Yellow (Eletank): CC Signature Four/Five
 
-
 #include <SPI.h>
 #include <Pixy.h>
 #include <Servo.h>
@@ -72,12 +71,18 @@ int wep; // Distance (Height) from Water to Elderly Pick Up Location.
 State curr_state;
 Location curr_target;
 
+// Elderly Signal Variables:
+
+int elderly_sig_out = 12; // Elderly Detection Output Signal 
+int elderly_sig_inp = 13; // Elderly Detection Inupt  Signal
+
 void setup() {
   Serial.begin(9600);
   Serial.println("Begin Initialization...\n");
   
   pixy.init(); // Initialize Pixy Object
 
+<<<<<<< HEAD
   // Initalizing Servos:
   servo_spigot.attach(PIN_SPIGOT);
   servo_syringe.attach(PIN_SYRINGE);
@@ -89,6 +94,11 @@ void setup() {
   pinMode(PIN_R_ENABLE, OUTPUT);
   pinMode(PIN_R_FORWARD, OUTPUT);
   pinMode(PIN_R_BACKWARD, OUTPUT);
+=======
+  pinMode(elderly_sig_out, OUTPUT);
+  pinMode(elderly_sig_inp, INPUT);
+  digitalWrite(elderly_sig_out, HIGH);
+>>>>>>> 9783625f03586ff52d98bd16b21c5fbcdde49caa
 
   int nvb = 0; // Number of Viewed Blocks ("Seen Signtaures")
   while (nvb <= NPO) { // Before Initializing Structs, ensure that all signatures have been detected.
@@ -131,11 +141,11 @@ void setup() {
   // Initialize Reference Locations and Relative Distances
   water_loc = {water.x_pos, water.y_pos}; 
   pickup_loc = {elderly.x_pos, elderly.y_pos};
-  wep = abs(getVDist(water_loc,pickup_loc));
+  wep = abs(getVDist(water_loc,pickup_loc)); // Distance (Height) from Water to Elderly Pick Up Location.
   cc_loc = {water.x_pos - elderly.x_pos,water.y_pos - elderly.y_pos}; // Concave Corner Location
-  szd = water_loc.y_pos - (wep + water.height); // Use the Y Position of Water - ((Distance Between Elderly and Water) + Length of Body of Water)
-  szb_loc = {water_loc.x_pos, water_loc.y_pos - wep};
-  safezone_loc = {water_loc.x_pos, water_loc.y_pos - (wep + szd)};
+  szd = elderly.y_pos - water.width; // Use the Y Position of Water - ((Distance Between Elderly and Water) + Length of Body of Water)
+  safezone_loc = {water_loc.x_pos, szd}; // Point to aim to drop off the elderly
+  
   // Initialize Moving Object Positions:
   elderly_pos = {elderly.x_pos, elderly.y_pos};
   eletank_pos = {eletank.x_pos, eletank.y_pos};
@@ -148,38 +158,28 @@ void setup() {
 // Using Starting Position, State Machines, and Functions / Reference Locations to Direct EleTank.
 void loop() {
   
-  //Update EleTank Position
-  eletank_pos.x_pos = pixy.blocks[eletank.block_pos].x;
-  eletank_pos.y_pos = pixy.blocks[eletank.block_pos].y;
-  
-  switch (curr_state) {
-    case 0:
-        static bool elderly_retrieved = false;
-        if (!elderly_retrieved) {
-          curr_target = pickup_loc;
-          if (getHDist(eletank_pos, curr_target) < MAD) { // Can't assume we'll approach elderly from a Horizontal Position
-            commandTankSave();
-            elderly_retrieved = true;
-          }
-        } else {
-          curr_target = safezone_loc;
-          if (getHDist(eletank_pos, curr_target) < MAD) {
-            commandTankDeposit();
-            curr_state = Retrieve_Water;
-          }
-        }
-        commandTankMovement(curr_target);
-      break;
-    case 1:
-      // Retrieve Water, Not Built Yet
-      break;
-    case 2:
-      // Put Out Fire, Not Implemented Yet
-      break;
-    default:
-      // Do Nothing... Enventually, Keep Motors idle.
-      break;
+  //Update EleTank Position with each run of the main loop.
+    
+  curr_target = pickup_loc;
+  if (getHDist(eletank_pos, curr_target) < MAD) { // Can't assume we'll approach elderly from a Horizontal Position
+    while (digitalRead(elderly_sig_inp) == LOW) {
+      commandTankSave();
+    }
   }
+
+  curr_target = safezone_loc;
+  commandTankMovement(curr_target);
+
+  // Consider adding an interrupt for re-retrieving the elderly!
+  
+  if (getHDist(eletank_pos, curr_target) < MAD) {
+    commandTankDeposit();
+  }
+        
+  // Retrieve Water...
+  // Put Out Fire...
+  // Quench Elderly...
+  // Wait Forever...
 }
 
 int getHDist(Location a, Location b) { // Note: Tank, Destination
@@ -200,18 +200,36 @@ int getVDist(Location a, Location b) {
   return abs(b.x_pos - a.x_pos);
 }
 
-int getShortestPath(Location a, Location b) { // May include an "Obstacle Flag? / Eventually should return "aimed for" Location.
-  int atan_var = getVDist(a,b)/getHDist(a,b);
-  int angle = atan(atan_var);
+double getDistance(Location a, Location b) {
+    double distance;
+    distance = sqrt((a.x_pos - b.x_pos) * (a.x_pos - b.x_pos) + (a.y_pos-b.y_pos) *(a.y_pos-b.y_pos));
+    return distance;
+}
+
+double getAngle1(Location a, Location b) {
+  double angle = atan2(a.y_pos - b.y_pos, a.x_pos - b.x_pos);
+  return (angle * 180 / PI);
+}
+
+double getAngle2(Location a, Location b) {
+  double atan_var = getVDist(a,b)/getHDist(a,b);
+  double angle = atan(atan_var);
+  return angle;
+}
+
+int getShortestPath(Location a, Location b) { // May include an "Obstacle Flag? // Eventually should return "aimed for" Location. // May need to be "smarter"
+
+  int target_angle_dir = getAngle1(a,b);
   int x_dir = getHDist(a,b);
   int y_dir = getVDist(a,b);
+  int total_distance = getDistance(a,b);
   String x_direct;
   String y_direct;
   
   if (b.x_pos - a.x_pos < 0) {
-    x_direct = "Right";
-  } else {
     x_direct = "Left";
+  } else {
+    x_direct = "Right";
   }
 
   if (b.y_pos - a.y_pos < 0) {
@@ -219,35 +237,106 @@ int getShortestPath(Location a, Location b) { // May include an "Obstacle Flag? 
   } else {
     y_direct = "Down";
   }
-  
-  printf("Tank must travel %d %s and %d %s OR travel in the %d direction\n",x_dir, x_direct.c_str(), y_dir, y_direct.c_str(), angle);
 
-  return angle;
-  // Eventually return Location...
+  // Tank Orients itself (does not yet drive though!)
+  eletankCommandTurn(target_angle_dir);
+
+  // Print Position / Direction Information : 
+  printf("Tank must travel %d %s and %d %s OR travel %d in the %d direction. \n",x_dir, x_direct.c_str(), y_dir, y_direct.c_str(), total_distance, target_angle_dir);
+  
+  return total_distance; // Return the distance betweent the target and the eletank
 }
 
-void commandTankMovement(Location target) { // May need some threshold flag to help this function decide when it's close enough to the SZB.
+char findTurnDirection(int currentDegree, int target)
+{
+     int diff = target - currentDegree;
+     if(diff < 0)
+         diff += 360;
+     if(diff > 180)
+          return 'L'; // left turn
+     else
+          return 'R'; // right turn
+}
+
+void eletankCommandTurn(int target_angle_dir) {
+  /* Get the angular position of the tank. */
+  int curr_eletank_angle = pixy.blocks[eletank.block_pos].angle;   
+
+  /* Determine which direction is most efficient to turn. */
+  char dir_char = findTurnDirection(curr_eletank_angle, target_angle_dir);  
+
+  /* Determine angular displacement*/
+  int ang_diff = curr_eletank_angle - target_angle_dir;
+  if (abs(ang_diff) > 180) {
+    ang_diff = 360 - abs(ang_diff);
+  }
+
+  /* Turn until angular difference between desired position and tank posiion are negligible */
+  while (abs(ang_diff) > 3) {
+    // INSERT DRIVE FORWARD FUNCTION HERE!
+    //tankTurn(1, dir_char); // '1' Currently place holder for speed.
+    curr_eletank_angle = pixy.blocks[eletank.block_pos].angle;
+    ang_diff = (curr_eletank_angle - target_angle_dir)%360;
+  }
+}
+
+int commandTankMovement(Location target) { // May need some threshold flag to help this function decide when it's close enough to the SZB.
+  static int distance_from_target = 10000; // Dummy Value
+  
   // If Target and Tank are beyond boundary...
   if (isBeyondBoundary(eletank_pos) && isBeyondBoundary(target)) {
-    getShortestPath(eletank_pos, target); 
-    // Above function will return angle, use this to move the tank.
+    distance_from_target = getShortestPath(eletank_pos, target); 
   }
 
   // If tank isn't beyond boundary, but target is OR If tank is beyond bounary, but target isn't...
   if (!isBeyondBoundary(eletank_pos) || !isBeyondBoundary(target)) {
     getShortestPath(eletank_pos, szb_loc);
   }
+
+  return distance_from_target;
 }
+
+bool isBeyondBoundary(Location pos){ // Returns whether the Location position is in "Free Space" (or space beyond boundary)
+  if (pos.y_pos < szb_loc.y_pos) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
+void commandTankNavigate(Location target_location) {
+  int dft; // Distance from Target...
+
+  /* Find location of eletank */
+  eletank_pos = {eletank.x_pos, eletank.y_pos}; // Not sure if this will work...
+  
+  /*Find distance from target*/
+  dft = getShortestPath(eletank_pos, target_location);
+ 
+  while (dft < MAD) {
+    // INSERT DRIVE FORWARD FUNCTION HERE!
+    delay(1000);
+    eletank_pos = {eletank.x_pos, eletank.y_pos}; // Update location of EleTank
+    dft = commandTankMovement(target_location); // Update Distance from target. 
+  }
+}
+
+/***********************************/
+/*Functions "under construction"...*/
+/***********************************/
 
 void commandTankSave(){
   // Stop Tank from moving!
   // Once the tank is within range, pick up the elderly.
 }
 
+<<<<<<< HEAD
 void commandTankDeposit(){
   // Moving Spigot down to detach elderly.
   spigot(A_FILL_SPIGOT); // Currently using spigot fill angle.
   spigot(A_REST_SPIGOT); // Currently using spigot resting angle.
+=======
+>>>>>>> 9783625f03586ff52d98bd16b21c5fbcdde49caa
 }
 
 void commandTankExniguish(){
@@ -261,6 +350,7 @@ void commandTankFill(){
   syringeFill()
   spigot(A_REST_SPIGOT);
 }
+<<<<<<< HEAD
 
 bool isBeyondBoundary(Location pos){ // Returns whether the Location position is in "Free Space" (or space beyond boundary)
   if (pos.y_pos < szb_loc.y_pos) {
@@ -367,3 +457,5 @@ void tankReverse(spd) {
   digitalWrite(PIN_R_FORWARD, LOW);
   digitalWrite(PIN_R_BACKWARD, HIGH);
 }
+=======
+>>>>>>> 9783625f03586ff52d98bd16b21c5fbcdde49caa
