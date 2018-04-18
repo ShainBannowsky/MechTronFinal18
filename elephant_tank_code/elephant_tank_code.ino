@@ -18,12 +18,12 @@
 #define PIN_SYRINGE      9
 
 #define PIN_L_ENABLE     5
-#define PIN_L_FORWARD    6
-#define PIN_L_BACKWARD   7
+#define PIN_L_FORWARD    3
+#define PIN_L_BACKWARD   4
 
-#define PIN_R_ENABLE     3
-#define PIN_R_FORWARD    2
-#define PIN_R_BACKWARD   1
+#define PIN_R_ENABLE     6
+#define PIN_R_FORWARD    7
+#define PIN_R_BACKWARD   8
 
 #define MSEC_FILLTIME 1000
 //#define MSEC_OUNCE  // To be determined later
