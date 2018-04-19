@@ -6,15 +6,14 @@
 // Green/Yellow (Eletank): CC Signature Four/Five
 
 #include <SPI.h>
-#include <Pixy.h>
 #include <Servo.h>
+#include <SoftwareSerial.h>
 
-#define NPO 4 // Number of Pixy Objects
-#define PWT 20 // Pixy Width Threshold (To Reliably Initialize Correct PixyObj Struct using Correct Image)
-#define MAD 25 // Minumum distance between eletank and target before it can perform a eletank-to-object action (save elder, get water).
-
-#define PIN_SPIGOT      11
+#define PIN_SPIGOT      13
 #define PIN_SYRINGE      9
+
+#define RX 11
+#define TX 10
 
 #define PIN_L_ENABLE     5
 #define PIN_L_FORWARD    3
@@ -29,60 +28,70 @@
 #define A_REST_SPIGOT  135
 #define A_FILL_SPIGOT  -45
 
+SoftwareSerial TankBluetooth(10, 11); // RX, TX
 Servo servo_spigot;
 Servo servo_syringe;
 
 struct PixyObj {
-  int width;
-  int height;
+  int signature;
   int x_pos;
   int y_pos;
-  int block_pos; // Pixy Block Array Position
+  int width;
+  int height;
+  int angle;
 };
 
 struct Location {
-  int x_pos;
-  int y_pos;
+  int x;
+  int y;
 };
 
-Pixy pixy; // Create Pixy Object
+// BT Variables:
+int infoArray[6] = {0,0,0,0,0,0};
+String incomingString;
 
-//PixyObj elderly; // bacon
-//PixyObj danger; // bacon
-PixyObj eletank;
-//PixyObj water; // bacon
+bool dangerDetected = false;
+bool elderlyDetected = false;
+bool waterDetected = false;
+bool eletankDetected = false;
 
-//Location water_loc; // bacon
-//Location pickup_loc; // bacon
-//Location cc_loc; // bacon
-//Location safezone_loc; // bacon
-Location szb_loc; // Safe Zone Boundry // bacon
-
-// Location elderly_pos; // bacon
-Location eletank_pos;
-
-// Important Distances:
+// Distance Variables:
 int szd; // Distance (Height) from Concave Corner Border to Safe Zone.
 int wep; // Distance (Height) from Water to Elderly Pick Up Location.
 
-// Other Important Variables:
-// State curr_state; // bacon
-Location curr_target;
-
 // Elderly Signal Variables:
-
 int elderly_sig_out = 12; // Elderly Detection Output Signal 
 int elderly_sig_inp = 13; // Elderly Detection Inupt  Signal
 
+PixyObj elderly = {0,0,0,0,0,0}; 
+PixyObj danger = {0,0,0,0,0,0}; 
+PixyObj eletank = {0,0,0,0,0,0};
+PixyObj water = {0,0,0,0,0,0}; 
+
+Location elderly_pos = {0,0}; 
+Location eletank_pos = {0,0}; 
+Location curr_target = {0,0}; 
+
+// Updated after referencing core locations:
+Location water_loc; 
+Location pickup_loc; 
+Location cc_loc; // Concave Corner
+Location safezone_loc; 
+Location szb_loc;  // Safe Zone Boundry 
+
 void setup() {
-  Serial.begin(9600);
-  Serial.println("Begin Initialization...\n");
+   Serial.println("Begin Initialization...\n");
   
-  pixy.init(); // Initialize Pixy Object
+  TankBluetooth.begin(9600);
+  Serial.begin(9600); 
 
   // Initalizing Servos:
-  servo_spigot.attach(PIN_SPIGOT);
-  servo_syringe.attach(PIN_SYRINGE);
+  //servo_spigot.attach(PIN_SPIGOT);
+  //servo_syringe.attach(PIN_SYRINGE);
+
+  //  pinMode(elderly_sig_out, OUTPUT);
+  //  pinMode(elderly_sig_inp, INPUT);
+  //  digitalWrite(elderly_sig_out, HIGH); 
 
   // Initalizing Pins:
   pinMode(PIN_L_ENABLE, OUTPUT);
@@ -91,149 +100,65 @@ void setup() {
   pinMode(PIN_R_ENABLE, OUTPUT);
   pinMode(PIN_R_FORWARD, OUTPUT);
   pinMode(PIN_R_BACKWARD, OUTPUT);
-//  pinMode(elderly_sig_out, OUTPUT); // bacon
-//  pinMode(elderly_sig_inp, INPUT); // bacon
-//  digitalWrite(elderly_sig_out, HIGH); // bacon
-
-//  int nvb = 0; // Number of Viewed Blocks ("Seen Signtaures") // bacon
-//  while (nvb <= NPO) { // Before Initializing Structs, ensure that all signatures have been detected. // bacon
-//   nvb += pixy.getBlocks(); // bacon
-//  } // bacon
-
-/*  // bacon
-  // Initialize PixyObj Structs
-  int block_pos ;
-  for (int block_pos = 0; block_pos < NPO; block_pos++) {
-    
-    // Wait for All Signatures to have good resolution:
-    while (pixy.blocks[block_pos].width < PWT);
-
-    // Collect Info on Currently Observed Signature:
-    int pixy_sig = pixy.blocks[block_pos].signature;
-    int w = pixy.blocks[block_pos].width;
-    int h = pixy.blocks[block_pos].height;
-    int x = pixy.blocks[block_pos].x;
-    int y = pixy.blocks[block_pos].y;
-    // Initialize New Object using above data:
-    switch (pixy_sig) { 
-      case 0:
-        elderly = { w, h, x, y, block_pos};
-        break;
-      case 1:
-        danger = {w, h, x, y, block_pos};
-        break;
-      case 2:
-        eletank = {w, h, x, y, block_pos};
-        break;
-      case 3:
-        water = {w, h, x, y, block_pos};
-        break;
-      default:
-         // Do Nothing
-         break;
-    }
-  }
-  */  // bacon
-  // For Testing:
-  int block_pos = 0;
-  int pixy_sig = pixy.blocks[block_pos].signature;
-  int eletank_sig = 0; // Place signature no. of eletank here!
-  int w = pixy.blocks[block_pos].width;
-  int h = pixy.blocks[block_pos].height;
-  int x = pixy.blocks[block_pos].x;
-  int y = pixy.blocks[block_pos].y;
-  if (pixy_sig == eletank_sig){
-     eletank = {w, h, x, y, block_pos};
-  }
-  //End
   
-  // Initialize Reference Locations and Relative Distances
-  /* bacon
-  //water_loc = {water.x_pos, water.y_pos}; 
-  //pickup_loc = {elderly.x_pos, elderly.y_pos};
-  //wep = abs(getVDist(water_loc,pickup_loc)); // Distance (Height) from Water to Elderly Pick Up Location.
-  //cc_loc = {water.x_pos - elderly.x_pos,water.y_pos - elderly.y_pos}; // Concave Corner Location
-  //szd = elderly.y_pos - water.width; // Use the Y Position of Water - ((Distance Between Elderly and Water) + Length of Body of Water)
-  //safezone_loc = {water_loc.x_pos, szd}; // Point to aim to drop off the elderly
-  */
-  
-  // Initialize Moving Object Positions:
-  //elderly_pos = {elderly.x_pos, elderly.y_pos};
-  eletank_pos = {eletank.x_pos, eletank.y_pos};
-
-  curr_target = eletank_pos; // Starting target is where eletank already is.
   Serial.println("Initialization Complete...\n");
 }
 
-// For testing
-int target_angle;
 // Using Starting Position, State Machines, and Functions / Reference Locations to Direct EleTank.
 void loop() {
-  
-  //Update EleTank Position with each run of the main loop.
-  Serial.println("Turning to 30 deg");
-  eletankCommandTurn(30);
-  Serial.println("Turning to 90 deg");
-  eletankCommandTurn(90);
-  Serial.println("Turning to -30 deg");
-  eletankCommandTurn(-30);
-  Serial.println("Turning to 30 deg");
-  eletankCommandTurn(30);
-  Serial.println("Turning to -30 deg");
-  eletankCommandTurn(-30);
-  Serial.println("Turning to 90 deg");
-  eletankCommandTurn(90);
 
-  /* Bacon
-  curr_target = pickup_loc;
-  if (getHDist(eletank_pos, curr_target) < MAD) { // Can't assume we'll approach elderly from a Horizontal Position
-    while (digitalRead(elderly_sig_inp) == LOW) {
-      commandTankSave();
-    }
-  }*/
+  if (dangerDetected==false) {
+    tankStop();
+  }
 
-  //curr_target = safezone_loc;v// bacon
-  //commandTankMovement(curr_target);//bacon
+  if (TankBluetooth.available()) {
+    incomingString = TankBluetooth.readString(); 
+    parsePixyInformation(incomingString);
+    curr_target = pickup_loc;
+    commandTankMovement(curr_target);
+  }
 
-  // Consider adding an interrupt for re-retrieving the elderly!
-  
-  /* Bacon
-   * if (getHDist(eletank_pos, curr_target) < MAD) {
-    commandTankDeposit();
-  }*/
-        
-  // Retrieve Water...
-  // Put Out Fire...
-  // Quench Elderly...
-  // Wait Forever...
+  //if (dangerDetected == true) {
+    
+    if (abs(eletank_pos.x - elderly_pos.x) < 5 || abs(eletank_pos.y - elderly_pos.y) < 5) {
+      curr_target = safezone_loc;
+      commandTankMovement(curr_target);
+    //}
+  }
 }
+
+/************************************************/
+/**********                         *************/
+/**********     HELPER FUNCTIONS    *********** */
+/**********                         *************/
+/************************************************/
 
 int getHDist(Location a, Location b) { // Note: Tank, Destination
-  if (b.x_pos - a.x_pos < 0) {
-    Serial.print("Right");
+  if (b.x - a.x < 0) {
+    Serial.print("Orient Tank Right\n");
   } else {
-    Serial.print("Left");
+    Serial.print("Orient Tank Left\n");
   }
-  return abs(b.x_pos - a.x_pos);
+  return abs(b.x - a.x);
 }
 
-int getVDist(Location a, Location b) {
-  if (b.y_pos - a.y_pos < 0) {
-    Serial.print("Up");
+int getVDist(Location a, Location b) { // Note: Tank, Destination
+  if (b.y - a.y < 0) {
+    Serial.print("Orient Tank Up\n");
   } else {
-    Serial.print("Down");
+    Serial.print("Orient Tank Down\n");
   }
-  return abs(b.x_pos - a.x_pos);
+  return abs(b.x - a.x);
 }
 
 double getDistance(Location a, Location b) {
     double distance;
-    distance = sqrt((a.x_pos - b.x_pos) * (a.x_pos - b.x_pos) + (a.y_pos-b.y_pos) *(a.y_pos-b.y_pos));
+    distance = sqrt((a.x - b.x) * (a.x - b.x) + (a.y-b.y) *(a.y-b.y));
     return distance;
 }
 
 double getAngle1(Location a, Location b) {
-  double angle = atan2(a.y_pos - b.y_pos, a.x_pos - b.x_pos);
+  double angle = atan2(a.y - b.y, a.x - b.x);
   return (angle * 180 / PI);
 }
 
@@ -243,7 +168,7 @@ double getAngle2(Location a, Location b) {
   return angle;
 }
 
-int getShortestPath(Location a, Location b) { // May include an "Obstacle Flag? // Eventually should return "aimed for" Location. // May need to be "smarter"
+int getShortestPath(Location a, Location b) { 
 
   int target_angle_dir = getAngle1(a,b);
   int x_dir = getHDist(a,b);
@@ -252,16 +177,16 @@ int getShortestPath(Location a, Location b) { // May include an "Obstacle Flag? 
   String x_direct;
   String y_direct;
   
-  if (b.x_pos - a.x_pos < 0) {
-    x_direct = "Left";
+  if (b.x - a.x < 0) {
+    x_direct = "Left ";
   } else {
-    x_direct = "Right";
+    x_direct = "Right ";
   }
 
-  if (b.y_pos - a.y_pos < 0) {
-    y_direct = "Up";
+  if (b.y - a.y < 0) {
+    y_direct = "Up ";
   } else {
-    y_direct = "Down";
+    y_direct = "Down ";
   }
 
   // Tank Orients itself (does not yet drive though!)
@@ -285,9 +210,10 @@ char findTurnDirection(int currentDegree, int target)
 }
 
 void eletankCommandTurn(int target_angle_dir) {
-  
+
+  Serial.println("Tank now turning!\n");
   /* Get the angular position of the tank. */
-  int curr_eletank_angle = pixy.blocks[eletank.block_pos].angle;   
+  int curr_eletank_angle = eletank.angle;   
   curr_eletank_angle = pixyAngleConvert(curr_eletank_angle);
   
   /* Determine which direction is most efficient to turn. */
@@ -300,13 +226,15 @@ void eletankCommandTurn(int target_angle_dir) {
   }
 
   /* Turn until angular difference between desired position and tank posiion are negligible */
-  while (abs(ang_diff) > 3) {
+  float timeout = millis();
+  while (abs(ang_diff) > 3 && (millis() - timeout) < 5000) {
     // INSERT DRIVE FORWARD FUNCTION HERE!
-    tankTurn(255, dir_char); // '1' Currently place holder for speed.
-    curr_eletank_angle = pixy.blocks[eletank.block_pos].angle;
+    tankTurn(127, dir_char); // '1' Currently place holder for speed.
+    curr_eletank_angle = eletank.angle;
     curr_eletank_angle = pixyAngleConvert(curr_eletank_angle);
     ang_diff = (curr_eletank_angle - target_angle_dir)%360;
   }
+  return; 
 }
 
 int commandTankMovement(Location target) { // May need some threshold flag to help this function decide when it's close enough to the SZB.
@@ -325,14 +253,6 @@ int commandTankMovement(Location target) { // May need some threshold flag to he
   return distance_from_target;
 }
 
-/*bool isBeyondBoundary(Location pos){ // Returns whether the Location position is in "Free Space" (or space beyond boundary)
-  if (pos.y_pos < szb_loc.y_pos) {
-    return false;
-  } else {
-    return true;
-  }
-}*/
-
 void commandTankNavigate(Location target_location) {
   int dft; // Distance from Target...
 
@@ -342,17 +262,14 @@ void commandTankNavigate(Location target_location) {
   /*Find distance from target*/
   dft = getShortestPath(eletank_pos, target_location);
  
-  while (dft < MAD) {
-    // INSERT DRIVE FORWARD FUNCTION HERE!
-    delay(1000);
+  while (dft < 25) { // Will Adjust Later!
+    tankDrive(255);
+    delay(2000);
+    tankStop();
     eletank_pos = {eletank.x_pos, eletank.y_pos}; // Update location of EleTank
     dft = commandTankMovement(target_location); // Update Distance from target. 
   }
 }
-
-/***********************************/
-/*Functions "under construction"...*/
-/***********************************/
 
 int pixyAngleConvert(int pixy_angle) {
   int temp_angle;
@@ -364,39 +281,12 @@ int pixyAngleConvert(int pixy_angle) {
   return temp_angle;
 }
 
-void commandTankSave(){
-  // Stop Tank from moving!
-  // Once the tank is within range, pick up the elderly.
-}
-
-void commandTankDeposit(){
-  // Moving Spigot down to detach elderly.
-  spigot(A_FILL_SPIGOT); // Currently using spigot fill angle.
-  spigot(A_REST_SPIGOT); // Currently using spigot resting angle.
-}
-
-void commandTankExniguish(){
-  // Stop Tank from moving!
-  // Angle "Tank Hose" in position to extenguish fire.
-  // Hose Fire Down by Pushin on Syringe
-}
-
-void commandTankFill(){
-  spigot(A_FILL_SPIGOT);
-  syringeFill();
-  spigot(A_REST_SPIGOT);
-}
-
 bool isBeyondBoundary(Location pos){ // Returns whether the Location position is in "Free Space" (or space beyond boundary)
-  if (pos.y_pos < szb_loc.y_pos) {
+  if (pos.y < szb_loc.y) {
     return false;
   } else {
     return true;
   }
-}
-
-void commandTankObstacleAvoidance() { // Use distance sensor in front to determine whether it should evade the obstacle
-  // Have a set arch to deviate from linear path.  
 }
 
 void syringeFill() {
@@ -405,12 +295,6 @@ void syringeFill() {
   delay(MSEC_FILLTIME); // Time to fill is experimentally determined.
   servo_syringe.write(90); // "90" to stop filling syringe.
 }
-
-/*void syringeFire(msec_time) {
-  servo_syringe.write(180); // "180" for emptying syringe.
-  delay(msec_time); // Spray water for specified amount of time.
-  servo_syringe.write(90); // "90" to stop emptying syringe.
-}*/
 
 void spigot(int input_angle) {
   // Sanity check!
@@ -429,7 +313,7 @@ int checkSpeed(int spd) {
   if(spd > 255) {
     return 255;
   } else if(spd <= 0) {
-    Serial.println("You know you set turning speed to 0 right?");
+    Serial.println("Speed at 0");
     return 0;
   } else {
     return (int)spd;
@@ -490,3 +374,162 @@ void tankReverse(int spd) {
   digitalWrite(PIN_R_BACKWARD, HIGH);
 }
 
+// Functions handling wireless information:
+
+void parsePixyInformation(String incomingBtString) {
+
+    //Serial.print("Incoming String from BT: ");
+    //Serial.println(incomingBtString);
+  
+    // Data from Bluetooth:
+    int n = 0;
+    char strCharArray[40];
+    while(incomingBtString[n] != '\0') {
+        strCharArray[n] = incomingBtString[n];
+        n++;
+    }
+
+    Serial.print("StrCharArray from BT: ");
+    Serial.println(strCharArray);
+    
+    stringToIntArray(strCharArray); // Updates BT InfoArray
+    Serial.print("Info Array from BT: ");
+    int x;
+    for (x = 0; x < 6; x++) {
+      Serial.print(infoArray[x]);
+      Serial.print(" ");
+    }
+    Serial.println("");
+    
+    // Update Object:
+    switch (infoArray[0]) { 
+      case 4: // Need to change these cases to match signatures
+        updatePixyObj(&elderly, infoArray);
+        elderly_pos.x = elderly.x_pos;
+        elderly_pos.y = elderly.y_pos;
+        if (elderlyDetected == false) {
+          Serial.println("Elderly Observed!:");
+          dangerDetected = true; // Temporary
+          pickup_loc = {elderly_pos.x, elderly_pos.x}; 
+          cc_loc = {pickup_loc.x + 200 ,pickup_loc.y }; 
+          safezone_loc = {pickup_loc.x + 400 ,pickup_loc.y - 200 }; 
+          szb_loc = {pickup_loc.x + 200, pickup_loc.y };  // Safe Zone Boundry 
+          elderlyDetected = true;
+        }
+        break;
+      case 19: // Need to change these cases to match signatures
+        updatePixyObj(&eletank, infoArray);
+        if (eletankDetected == false) {  
+          Serial.println("Eletank Observed!:");
+          eletankDetected = true;
+        }
+        eletank_pos.x = eletank.x_pos;
+        eletank_pos.y = eletank.y_pos;  
+        break;   
+      case 5: // Need to change these cases to match signatures
+        updatePixyObj(&water, infoArray);
+        if (waterDetected == false) {
+          water_loc = {water.x_pos, water.y_pos}; 
+          waterDetected = true;
+        }
+        break;
+      case 1: // Need to change these cases to match signatures
+        updatePixyObj(&danger, infoArray);
+         if (dangerDetected == false) { 
+           Serial.println("Danger Detected!");
+           dangerDetected = true;
+         }
+        break;
+      default:
+         // Do Nothing
+         break;
+    }
+}
+
+void stringToIntArray(char str[]) {
+  
+  int intArray[6] = {0, 0, 0, 0, 0, 0};
+  char charArray[6] = {'0', '0', '0', '0', '0', '0'};
+  int count = 0;
+
+  // Convert String to char Array
+  char *ch;
+  ch = strtok(str, " ");
+  int i;
+  for (i = 0; i < 6; i++) {
+    if (ch != NULL) {
+      charArray[i] = ch;
+      ch = strtok(NULL, " ");
+    }
+  }
+
+  // Convert char Attay to int Array
+  for(i = 0; i < 6; i++)
+  {
+    infoArray[i] = atoi(charArray[i]);
+  }
+
+  Serial.print("Info Array from Str to Int Function: ");
+  int x;
+  for (x = 0; x < 6; x++) {
+    Serial.print(infoArray[x]);
+    Serial.print(" ");
+  }
+  Serial.println("");
+    
+    
+  return;
+}
+
+void updatePixyObj(PixyObj* pxObj, int intArray[]) {
+  pxObj->x_pos = intArray[1];
+  pxObj->y_pos = intArray[2];
+  pxObj->width = intArray[3];
+  pxObj->height = intArray[4];
+  pxObj->angle = intArray[5];
+  return;
+}
+
+
+
+
+
+
+
+
+/***********************************/
+/*Functions "under construction"...*/
+/***********************************/
+
+void commandTankSave(){
+  // Stop Tank from moving!
+  // Once the tank is within range, pick up the elderly.
+}
+
+void commandTankDeposit(){
+  // Moving Spigot down to detach elderly.
+  spigot(A_FILL_SPIGOT); // Currently using spigot fill angle.
+  spigot(A_REST_SPIGOT); // Currently using spigot resting angle.
+}
+
+void commandTankExniguish(){
+  // Stop Tank from moving!
+  // Angle "Tank Hose" in position to extenguish fire.
+  // Hose Fire Down by Pushin on Syringe
+}
+
+void commandTankFill(){
+  spigot(A_FILL_SPIGOT);
+  syringeFill();
+  spigot(A_REST_SPIGOT);
+}
+
+void commandTankObstacleAvoidance() { // Use distance sensor in front to determine whether it should evade the obstacle
+  // Have a set arch to deviate from linear path.  
+}
+
+/*void syringeFire(msec_time) {
+  servo_syringe.write(180); // "180" for emptying syringe.
+  delay(msec_time); // Spray water for specified amount of time.
+  servo_syringe.write(90); // "90" to stop emptying syringe.
+}*/
