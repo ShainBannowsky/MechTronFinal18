@@ -9,7 +9,9 @@
 #include <Servo.h>
 #include <SoftwareSerial.h>
 
-#define PIN_SPIGOT      13
+#define PIN_ELDERLY_CONNECT      13
+
+//#define PIN_SPIGOT      13
 #define PIN_SYRINGE      9
 
 #define RX 11
@@ -60,8 +62,8 @@ int szd; // Distance (Height) from Concave Corner Border to Safe Zone.
 int wep; // Distance (Height) from Water to Elderly Pick Up Location.
 
 // Elderly Signal Variables:
-int elderly_sig_out = 12; // Elderly Detection Output Signal 
-int elderly_sig_inp = 13; // Elderly Detection Inupt  Signal
+//int elderly_sig_out = 12; // Elderly Detection Output Signal 
+//int elderly_sig_inp = 13; // Elderly Detection Inupt  Signal
 
 PixyObj elderly = {0,0,0,0,0,0}; 
 PixyObj danger = {0,0,0,0,0,0}; 
@@ -89,8 +91,7 @@ void setup() {
   //servo_spigot.attach(PIN_SPIGOT);
   //servo_syringe.attach(PIN_SYRINGE);
 
-  //  pinMode(elderly_sig_out, OUTPUT);
-  //  pinMode(elderly_sig_inp, INPUT);
+  pinMode(PIN_ELDERLY_CONNECT, INPUT_PULLUP);
   //  digitalWrite(elderly_sig_out, HIGH); 
 
   // Initalizing Pins:
@@ -109,21 +110,33 @@ void loop() {
 
   if (dangerDetected==false) {
     tankStop();
+    //tankDrive(255);
   }
 
   if (TankBluetooth.available()) {
     incomingString = TankBluetooth.readString(); 
     parsePixyInformation(incomingString);
     curr_target = pickup_loc;
-    commandTankMovement(curr_target);
-  }
 
-  //if (dangerDetected == true) {
+    Serial.print("Current Target: (");
+    Serial.print(curr_target.x);
+    Serial.print(", ");
+    Serial.print(curr_target.y);
+    Serial.println(")");
     
-    if (abs(eletank_pos.x - elderly_pos.x) < 5 || abs(eletank_pos.y - elderly_pos.y) < 5) {
+    /*tankDrive(255);
+    delay(500);
+    tankStop();*/
+    
+    if (dangerDetected) {
+      Serial.println("Danger Detected!");
+      commandTankMovement(curr_target); // <--- Issue begins here!
+    }
+    
+    if (!digitalRead(PIN_ELDERLY_CONNECT)) { // <--- Need a proximity function in mean time to digitally trigger pin.
       curr_target = safezone_loc;
       commandTankMovement(curr_target);
-    //}
+    }
   }
 }
 
@@ -233,6 +246,7 @@ void eletankCommandTurn(int target_angle_dir) {
     curr_eletank_angle = eletank.angle;
     curr_eletank_angle = pixyAngleConvert(curr_eletank_angle);
     ang_diff = (curr_eletank_angle - target_angle_dir)%360;
+    tankStop();
   }
   return; 
 }
@@ -261,8 +275,10 @@ void commandTankNavigate(Location target_location) {
   
   /*Find distance from target*/
   dft = getShortestPath(eletank_pos, target_location);
+  Serial.print("DFT: ");
+  Serial.println(dft);
  
-  while (dft < 25) { // Will Adjust Later!
+  while (dft > 25) { // Will Adjust Later!
     tankDrive(255);
     delay(2000);
     tankStop();
@@ -384,11 +400,13 @@ void parsePixyInformation(String incomingBtString) {
     // Data from Bluetooth:
     int n = 0;
     char strCharArray[40];
-    while(incomingBtString[n] != '\0') {
+    //while(incomingBtString[n] != '\0') {
+    while(incomingBtString[n] != '\n') {
         strCharArray[n] = incomingBtString[n];
         n++;
     }
 
+    Serial.println("\nIncoming Info: ");
     Serial.print("StrCharArray from BT: ");
     Serial.println(strCharArray);
     
@@ -409,8 +427,8 @@ void parsePixyInformation(String incomingBtString) {
         elderly_pos.y = elderly.y_pos;
         if (elderlyDetected == false) {
           Serial.println("Elderly Observed!:");
-          dangerDetected = true; // Temporary
-          pickup_loc = {elderly_pos.x, elderly_pos.x}; 
+          //dangerDetected = true; // Temporary
+          pickup_loc = {elderly_pos.x, elderly_pos.y}; 
           cc_loc = {pickup_loc.x + 200 ,pickup_loc.y }; 
           safezone_loc = {pickup_loc.x + 400 ,pickup_loc.y - 200 }; 
           szb_loc = {pickup_loc.x + 200, pickup_loc.y };  // Safe Zone Boundry 
@@ -437,6 +455,9 @@ void parsePixyInformation(String incomingBtString) {
         updatePixyObj(&danger, infoArray);
          if (dangerDetected == false) { 
            Serial.println("Danger Detected!");
+           tankDrive(255);
+           delay(2000);
+           tankStop();
            dangerDetected = true;
          }
         break;
@@ -454,28 +475,38 @@ void stringToIntArray(char str[]) {
 
   // Convert String to char Array
   char *ch;
-  ch = strtok(str, " ");
+  char *rest = str;
+  //ch = strtok(str, " ");
+  ch = strtok_r(rest, " ", &rest);
+  
   int i;
   for (i = 0; i < 6; i++) {
     if (ch != NULL) {
       charArray[i] = ch;
-      ch = strtok(NULL, " ");
+      /*Serial.print("StrTok Value ");
+      Serial.print(i);
+      Serial.print(" :");
+      Serial.println(ch);*/
+      infoArray[i] = atoi(ch);
+      //ch = strtok(str, " ");
+      ch = strtok_r(rest, " ", &rest);
+      //ch = strtok(NULL, " ");
     }
   }
 
   // Convert char Attay to int Array
-  for(i = 0; i < 6; i++)
+  /*for(i = 0; i < 6; i++)
   {
     infoArray[i] = atoi(charArray[i]);
-  }
+  }*/
 
-  Serial.print("Info Array from Str to Int Function: ");
+  /*Serial.print("Info Array from Str to Int Function: ");
   int x;
   for (x = 0; x < 6; x++) {
     Serial.print(infoArray[x]);
     Serial.print(" ");
   }
-  Serial.println("");
+  Serial.println("");*/
     
     
   return;
