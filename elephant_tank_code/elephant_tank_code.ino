@@ -18,12 +18,12 @@
 #define TX 10
 
 #define PIN_L_ENABLE     5
-#define PIN_L_FORWARD    3
-#define PIN_L_BACKWARD   4
+#define PIN_L_FORWARD    3 //3
+#define PIN_L_BACKWARD   4 //4
 
 #define PIN_R_ENABLE     6
-#define PIN_R_FORWARD    7
-#define PIN_R_BACKWARD   8
+#define PIN_R_FORWARD    7 //7
+#define PIN_R_BACKWARD   8 //8
 
 #define MSEC_FILLTIME 1000
 //#define MSEC_OUNCE  // To be determined later
@@ -47,6 +47,8 @@ struct Location {
   int x;
   int y;
 };
+
+Location targ = {50, 75};
 
 // BT Variables:
 int infoArray[6] = {0,0,0,0,0,0};
@@ -82,10 +84,12 @@ Location safezone_loc;
 Location szb_loc;  // Safe Zone Boundry 
 
 void setup() {
-   Serial.println("Begin Initialization...\n");
+  Serial.println("Begin Initialization...\n");
   
   TankBluetooth.begin(9600);
+  delay(50);
   Serial.begin(9600); 
+  delay(50);
 
   // Initalizing Servos:
   //servo_spigot.attach(PIN_SPIGOT);
@@ -103,6 +107,30 @@ void setup() {
   pinMode(PIN_R_BACKWARD, OUTPUT);
   
   Serial.println("Initialization Complete...\n");
+  /*
+  while(1) {
+  Serial.println("Testing begins...");
+  Location target = {50, 75};
+  eletank_pos.x = 25;
+  eletank_pos.y = 0;
+  eletank.angle = 45;
+  int foo = commandTankMovement(target);
+  delay(2000);
+  target = {50, 50};
+  eletank_pos.x = 0;
+  eletank_pos.y = 50;
+  eletank.angle = 0;
+  foo = commandTankMovement(target);
+  delay(2000);
+  target = {50, 50};
+  eletank_pos.x = 50;
+  eletank_pos.y = 0;
+  eletank.angle = 90;
+  foo = commandTankMovement(target);
+  delay(2000);
+  }
+  Serial.println("Testing ends...");
+  */
 }
 
 // Using Starting Position, State Machines, and Functions / Reference Locations to Direct EleTank.
@@ -112,9 +140,11 @@ void loop() {
     tankStop();
     //tankDrive(255);
   }
-
+  
   if (TankBluetooth.available()) {
-    incomingString = TankBluetooth.readString(); 
+    Serial.println("BT Available!");
+    incomingString = TankBluetooth.readString();
+    Serial.println(incomingString);
     parsePixyInformation(incomingString);
     curr_target = pickup_loc;
 
@@ -214,6 +244,10 @@ int getShortestPath(Location a, Location b) {
 char findTurnDirection(int currentDegree, int target)
 {
      int diff = target - currentDegree;
+     // ------
+     Serial.println("findTurnDirection");
+     Serial.println(diff);
+     // ------
      if(diff < 0)
          diff += 360;
      if(diff > 180)
@@ -240,23 +274,28 @@ void eletankCommandTurn(int target_angle_dir) {
 
   /* Turn until angular difference between desired position and tank posiion are negligible */
   float timeout = millis();
+
+  // ------
+  Serial.println("dir_char");
+  Serial.println(dir_char);
+  // ------
   while (abs(ang_diff) > 3 && (millis() - timeout) < 5000) {
-    // INSERT DRIVE FORWARD FUNCTION HERE!
-    tankTurn(127, dir_char); // '1' Currently place holder for speed.
+    tankTurn(255, dir_char); // '1' Currently place holder for speed.
     curr_eletank_angle = eletank.angle;
     curr_eletank_angle = pixyAngleConvert(curr_eletank_angle);
     ang_diff = (curr_eletank_angle - target_angle_dir)%360;
-    tankStop();
+    delay(100);
   }
+  tankStop();
   return; 
 }
 
 int commandTankMovement(Location target) { // May need some threshold flag to help this function decide when it's close enough to the SZB.
-  static int distance_from_target = 10000; // Dummy Value
+  int distance = 10000; // Dummy Value, distance from target
   
   // If Target and Tank are beyond boundary...
   if (isBeyondBoundary(eletank_pos) && isBeyondBoundary(target)) {
-    distance_from_target = getShortestPath(eletank_pos, target); 
+    distance = getShortestPath(eletank_pos, target); 
   }
 
   // If tank isn't beyond boundary, but target is OR If tank is beyond bounary, but target isn't...
@@ -264,7 +303,15 @@ int commandTankMovement(Location target) { // May need some threshold flag to he
     getShortestPath(eletank_pos, szb_loc);
   }
 
-  return distance_from_target;
+  float timeout = millis();
+  if(distance > 25) {
+    tankDrive(255);
+      while((millis() - timeout) > 1000) {
+        // Blank
+      }
+    tankStop();
+  }
+  return distance;
 }
 
 void commandTankNavigate(Location target_location) {
@@ -346,20 +393,26 @@ void tankStop() {
   digitalWrite(PIN_R_BACKWARD, LOW);
 }
 
-void tankTurn(int spd, int dir) {
+void tankTurn(int spd, char dir) {
   // Continuously turn in given direction and speed.
   spd = checkSpeed(spd);
   // Checking direction.
   if(dir == 'L') {
+    Serial.println("Tank turning left!");
+    analogWrite(PIN_L_ENABLE, spd);
+    analogWrite(PIN_R_ENABLE, spd);
     digitalWrite(PIN_L_FORWARD, HIGH);
     digitalWrite(PIN_L_BACKWARD, LOW);
     digitalWrite(PIN_R_FORWARD, LOW);
     digitalWrite(PIN_R_BACKWARD, HIGH);
   } else if(dir == 'R') {
-    digitalWrite(PIN_L_FORWARD, HIGH);
-    digitalWrite(PIN_L_BACKWARD, LOW);
-    digitalWrite(PIN_R_FORWARD, LOW);
-    digitalWrite(PIN_R_BACKWARD, HIGH);
+    Serial.println("Tank turning right!");
+    analogWrite(PIN_L_ENABLE, spd);
+    analogWrite(PIN_R_ENABLE, spd);
+    digitalWrite(PIN_L_FORWARD, LOW);
+    digitalWrite(PIN_L_BACKWARD, HIGH);
+    digitalWrite(PIN_R_FORWARD, HIGH);
+    digitalWrite(PIN_R_BACKWARD, LOW);
   } else {
     Serial.print("Invalid direction input to tankTurn(): dir = ");
     Serial.println(dir);
@@ -429,7 +482,7 @@ void parsePixyInformation(String incomingBtString) {
           Serial.println("Elderly Observed!:");
           //dangerDetected = true; // Temporary
           pickup_loc = {elderly_pos.x, elderly_pos.y}; 
-          cc_loc = {pickup_loc.x + 200 ,pickup_loc.y }; 
+          cc_loc = {pickup_loc.x + 200 ,pickup_loc.y - 40 }; 
           safezone_loc = {pickup_loc.x + 400 ,pickup_loc.y - 200 }; 
           szb_loc = {pickup_loc.x + 200, pickup_loc.y };  // Safe Zone Boundry 
           elderlyDetected = true;
