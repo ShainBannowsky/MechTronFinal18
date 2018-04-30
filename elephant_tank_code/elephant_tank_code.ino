@@ -9,13 +9,13 @@
 #include <Servo.h>
 #include <SoftwareSerial.h>
 
+#define RX 11
+#define TX 10
+
 #define PIN_ELDERLY_CONNECT      13
 
 //#define PIN_SPIGOT      13
 #define PIN_SYRINGE      9
-
-#define RX 11
-#define TX 10
 
 #define PIN_L_ENABLE     5
 #define PIN_L_FORWARD    3
@@ -25,8 +25,8 @@
 #define PIN_R_FORWARD    7
 #define PIN_R_BACKWARD   8
 
-#define MSEC_FILLTIME 1000
-//#define MSEC_OUNCE  // To be determined later
+#define MSEC_FILLTIME 2000 // Yet to be determined experimentally
+#define MSEC_OUNCE     600  // To be determined later
 #define A_REST_SPIGOT  135
 #define A_FILL_SPIGOT  -45
 
@@ -47,7 +47,7 @@ int mission = 0;
 bool fire_extinguished = false;
 
 void setup() {
-   Serial.println("Begin Initialization...\n");
+  Serial.println("Begin Initialization...\n");
   
   TankBluetooth.begin(9600);
   Serial.begin(9600); 
@@ -115,6 +115,9 @@ void loop() {
       if (transmissionData[3] != 0) {
         tankTurn(transmissionData[2]);
         tankDrive(transmissionData[3]);
+        // Fine adjustments go here
+        spigot(A_FILL_SPIGOT);
+        syringeFill(MSEC_FILTIME);
       } else {
         mission = 3;
       }
@@ -122,9 +125,23 @@ void loop() {
       if (transmissionData[5] != 0) {
         tankTurn(transmissionData[4]);
         tankDrive(transmissionData[5]);
+        // Fire targetting stuff goes here - currently not implemented.
+        // Need to calculate spigot angle.
+        // Could potentially make actual fire extinguishing next mission.
+        syringeFire(MSEC_OUNCE);
       } else {
-        mission = 1;
+        mission = 4;
         fire_extinguished = true;
+      }
+    case 4: // Get Water again
+      if (transmissionData[7] != 0) {
+        tankTurn(transmissionData[6]);
+        tankDrive(transmissionData[7]);
+        // Fine adjustments go here
+        spigot(A_FILL_SPIGOT);
+        syringeFill(MSEC_FILTIME);
+      } else {
+        mission = 5;
       }
     default:
       tankStop();
@@ -138,11 +155,17 @@ void loop() {
 /**********                         *************/
 /************************************************/
 
-void syringeFill() {
+void syringeFill(msec_time) {
   // Fill Syringe, assuming position-controlled servo.
   servo_syringe.write(0); // "0" for filling syringe.
-  delay(MSEC_FILLTIME); // Time to fill is experimentally determined.
+  delay(msec_time); // Time to fill is experimentally determined.
   servo_syringe.write(90); // "90" to stop filling syringe.
+}
+
+void syringeFire(msec_time) {
+  servo_syringe.write(180); // "180" for emptying syringe.
+  delay(msec_time); // Spray water for specified amount of time.
+  servo_syringe.write(90); // "90" to stop emptying syringe.
 }
 
 void spigot(int input_angle) {
