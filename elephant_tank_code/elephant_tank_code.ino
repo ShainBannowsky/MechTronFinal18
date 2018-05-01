@@ -142,7 +142,6 @@ void loop() {
     default:
       tankStop();
   }
-  
 }
 
 /************************************************/
@@ -166,13 +165,12 @@ void syringeFire(int msec_time) {
 
 void spigot(int input_angle) {
   // Sanity check!
-  int angle = (int)input_angle;
-  if(angle > 90) {
+  if(input_angle > 180) {
     servo_spigot.write(180);
-  } else if(angle < (-90)) {
+  } else if(input_angle < 0) {
     servo_spigot.write(0);
   } else {
-    servo_spigot.write(angle);
+    servo_spigot.write(input_angle);
   }
 }
 
