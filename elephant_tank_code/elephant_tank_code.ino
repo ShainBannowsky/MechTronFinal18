@@ -133,16 +133,6 @@ void loop() {
         mission = 4;
         fire_extinguished = true;
       }
-    case 4: // Get Water again
-      if (transmissionData[7] != 0) {
-        tankTurn(transmissionData[6]);
-        tankDrive(transmissionData[7]);
-        // Fine adjustments go here
-        spigot(A_FILL_SPIGOT);
-        syringeFill(MSEC_FILTIME);
-      } else {
-        mission = 5;
-      }
     default:
       tankStop();
   }
