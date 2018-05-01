@@ -25,13 +25,21 @@
 #define PIN_R_FORWARD    7
 #define PIN_R_BACKWARD   8
 
+#define PIN_ENCODER	 2 // I'd prefer this to be an interrupt pin
+
 #define MSEC_FILLTIME 2000 // Yet to be determined experimentally
-#define MSEC_OUNCE     600  // To be determined later
+#define MSEC_OUNCE     600 // To be determined later
 #define A_REST_SPIGOT  135
 #define A_FILL_SPIGOT   45
 #define A_ELDR_SPIGOT   90
 
+// Volatile encoder flag
+volatile boolean encoder_flag;
+
+// Software Serial
 SoftwareSerial TankBluetooth(10, 11); // RX, TX
+
+// Servos
 Servo servo_spigot;
 Servo servo_syringe;
 
@@ -67,6 +75,14 @@ void setup() {
   pinMode(PIN_R_ENABLE, OUTPUT);
   pinMode(PIN_R_FORWARD, OUTPUT);
   pinMode(PIN_R_BACKWARD, OUTPUT);
+
+  // Attaching interrupt to homemade encoder pin:
+  attachInterrupt(PIN_ENCODER, encoder, RISING);
+
+  // Initalizing encoder using reset function.
+  // Encoder flag flips to True when encoder trips,
+  // Otherwise, it is set to false with the reset funciton.
+  resetEncoder();
   
   Serial.println("Initialization Complete...\n");
   if (TankBluetooth.available()) {
@@ -249,4 +265,15 @@ void stringToDoubleArray(char str[]) {
     }
   }
   return;
+}
+
+// Encoder functions
+
+void resetEncoder() {
+  encoder_flag = false;
+}
+
+// Interrupt function for homemade encoder:
+void encoder() {
+  encoder_flag = true;
 }
