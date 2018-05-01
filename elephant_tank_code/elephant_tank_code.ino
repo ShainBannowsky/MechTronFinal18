@@ -126,7 +126,8 @@ void loop() {
         mission = 2;
       } else if (transmissionData[1] == 0 && fire_extinguished == true) {
         spigot(A_ELDR_SPIGOT);
-        syringeFire(MSEC_OUNCE);
+        // This syringeFire() empties last half of syringe.
+        syringeFire();
         spigot(A_REST_SPIGOT);
         tankStop();
         while(1); // Done.
@@ -137,7 +138,9 @@ void loop() {
         tankDrive(transmissionData[3]);
         // Fine adjustments go here
         spigot(A_FILL_SPIGOT);
-        syringeFill(MSEC_FILLTIME);
+        // Call syringeFill() twice to fully fill syringe.
+        syringeFill();
+        syringeFill();
         spigot(A_REST_SPIGOT);
       } else {
         mission = 3;
@@ -149,7 +152,8 @@ void loop() {
         // Fire targetting stuff goes here - currently not implemented.
         // Need to calculate spigot angle.
         // Could potentially make actual fire extinguishing next mission.
-        syringeFire(MSEC_OUNCE);
+        // This syringeFire() empties first half of syringe.
+        syringeFire();
         spigot(A_REST_SPIGOT);
       } else {
         mission = 1;
@@ -166,16 +170,20 @@ void loop() {
 /**********                         *************/
 /************************************************/
 
-void syringeFill(int msec_time) {
+void syringeFill() {
   // Fill Syringe, assuming position-controlled servo.
-  servo_syringe.write(0); // "0" for filling syringe.
-  delay(msec_time); // Time to fill is experimentally determined.
+  resetEncoder();
+  while(encoder_flag == false) {
+    servo_syringe.write(0); // "0" for filling syringe.
+  }
   servo_syringe.write(90); // "90" to stop filling syringe.
 }
 
-void syringeFire(int msec_time) {
-  servo_syringe.write(180); // "180" for emptying syringe.
-  delay(msec_time); // Spray water for specified amount of time.
+void syringeFire() {
+  resetEncoder();
+  while(encoder_flag == false) {
+    servo_syringe.write(180); // "180" for emptying syringe.
+  }
   servo_syringe.write(90); // "90" to stop emptying syringe.
 }
 
