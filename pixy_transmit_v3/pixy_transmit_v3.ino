@@ -30,7 +30,7 @@ int waterInfo[6];
 int fireInfo[6];
 
 // Transmission Data:
-int transmissionData[6] = {0, 0, 0, 0, 0, 0];
+int transmissionData[6] = {0, 0, 0, 0, 0, 0};
 
 SoftwareSerial pixBluetooth(11, 10); // RX, TX
 

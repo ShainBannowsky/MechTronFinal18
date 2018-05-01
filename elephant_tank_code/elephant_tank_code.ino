@@ -28,7 +28,8 @@
 #define MSEC_FILLTIME 2000 // Yet to be determined experimentally
 #define MSEC_OUNCE     600  // To be determined later
 #define A_REST_SPIGOT  135
-#define A_FILL_SPIGOT  -45
+#define A_FILL_SPIGOT   45
+#define A_ELDR_SPIGOT   90
 
 SoftwareSerial TankBluetooth(10, 11); // RX, TX
 Servo servo_spigot;
@@ -108,6 +109,9 @@ void loop() {
       } else if (transmissionData[1] == 0 && fire_extinguished == false) {
         mission = 2;
       } else if (transmissionData[1] == 0 && fire_extinguished == true) {
+        spigot(A_ELDR_SPIGOT);
+        syringeFire(MSEC_OUNCE);
+        spigot(A_REST_SPIGOT);
         tankStop();
         while(1); // Done.
       }
@@ -117,7 +121,8 @@ void loop() {
         tankDrive(transmissionData[3]);
         // Fine adjustments go here
         spigot(A_FILL_SPIGOT);
-        syringeFill(MSEC_FILTIME);
+        syringeFill(MSEC_FILLTIME);
+        spigot(A_REST_SPIGOT);
       } else {
         mission = 3;
       }
@@ -129,8 +134,9 @@ void loop() {
         // Need to calculate spigot angle.
         // Could potentially make actual fire extinguishing next mission.
         syringeFire(MSEC_OUNCE);
+        spigot(A_REST_SPIGOT);
       } else {
-        mission = 4;
+        mission = 1;
         fire_extinguished = true;
       }
     default:
@@ -145,14 +151,14 @@ void loop() {
 /**********                         *************/
 /************************************************/
 
-void syringeFill(msec_time) {
+void syringeFill(int msec_time) {
   // Fill Syringe, assuming position-controlled servo.
   servo_syringe.write(0); // "0" for filling syringe.
   delay(msec_time); // Time to fill is experimentally determined.
   servo_syringe.write(90); // "90" to stop filling syringe.
 }
 
-void syringeFire(msec_time) {
+void syringeFire(int msec_time) {
   servo_syringe.write(180); // "180" for emptying syringe.
   delay(msec_time); // Spray water for specified amount of time.
   servo_syringe.write(90); // "90" to stop emptying syringe.
